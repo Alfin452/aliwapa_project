@@ -11,10 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('shelves', function (Blueprint $table) {
+        Schema::create('categories', function (Blueprint $table) {
             $table->id();
-            $table->string('nama_rak'); // Contoh: Rak A1, Lemari Besi
-            $table->string('lokasi')->nullable(); // Contoh: Lantai 2
+            $table->string('nama_kategori'); // Misal: Karya Umum, Filsafat
+            $table->string('kode_ddc')->nullable(); // Misal: 000, 100 (Klasifikasi DDC)
             $table->timestamps();
         });
     }
@@ -24,6 +24,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('shelves');
+        Schema::dropIfExists('categories');
     }
 };

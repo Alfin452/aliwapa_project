@@ -6,85 +6,101 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\Rules;
-use Illuminate\Support\Facades\Auth;
+
 class UserController extends Controller
 {
-    // Menampilkan daftar user
+    /**
+     * Tampilkan daftar semua user
+     */
     public function index()
     {
-        // Ambil semua data user, urutkan terbaru
-        $users = User::latest()->get();
+        // Ambil semua user, admin di paling atas
+        $users = User::orderBy('role', 'asc')->latest()->paginate(10);
         return view('users.index', compact('users'));
     }
 
-    // Menampilkan form tambah user
+    /**
+     * Form tambah user baru
+     */
     public function create()
     {
         return view('users.create');
     }
 
-    // Menyimpan user baru ke database
+    /**
+     * Simpan user baru ke database
+     */
     public function store(Request $request)
     {
         $request->validate([
             'name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
-            'password' => ['required', 'confirmed', Rules\Password::defaults()],
+            'email' => ['required', 'string', 'lowercase', 'email', 'max:255', 'unique:' . User::class],
             'role' => ['required', 'in:admin,karyawan'],
+            'password' => ['required', 'confirmed', Rules\Password::defaults()],
         ]);
 
         User::create([
             'name' => $request->name,
             'email' => $request->email,
-            'password' => Hash::make($request->password),
             'role' => $request->role,
+            'password' => Hash::make($request->password), // Enkripsi password
         ]);
 
         return redirect()->route('users.index')->with('success', 'User berhasil ditambahkan!');
     }
 
-    // Menampilkan form edit
+    /**
+     * Form edit user
+     */
     public function edit(User $user)
     {
         return view('users.edit', compact('user'));
     }
 
-    // Update data user
+    /**
+     * Update data user
+     */
     public function update(Request $request, User $user)
     {
         $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'string', 'email', 'max:255', 'unique:users,email,' . $user->id],
             'role' => ['required', 'in:admin,karyawan'],
+            'password' => ['nullable', 'confirmed', Rules\Password::defaults()], // Nullable: boleh kosong kalau gak ganti password
         ]);
 
-        // Update data dasar
-        $user->name = $request->name;
-        $user->email = $request->email;
-        $user->role = $request->role;
+        // Data yang mau diupdate
+        $data = [
+            'name' => $request->name,
+            'email' => $request->email,
+            'role' => $request->role,
+        ];
 
-        // Cek jika password diisi, maka update password. Jika kosong, biarkan password lama.
+        // Cek apakah admin mengisi password baru?
         if ($request->filled('password')) {
-            $request->validate([
-                'password' => ['confirmed', Rules\Password::defaults()],
-            ]);
-            $user->password = Hash::make($request->password);
+            $data['password'] = Hash::make($request->password);
         }
 
-        $user->save();
+        $user->update($data);
 
         return redirect()->route('users.index')->with('success', 'Data user berhasil diperbarui!');
     }
 
-    // Hapus user
+    /**
+     * Hapus user
+     */
+    /**
+     * Hapus user
+     */
     public function destroy(User $user)
     {
-        // Cegah admin menghapus dirinya sendiri
-        if ($user->id == Auth::id()) {
+        // PERBAIKAN: Gunakan request()->user()->id
+        // Ini membandingkan ID orang yang login dengan ID user yang mau dihapus
+        if (request()->user()->id === $user->id) {
             return back()->with('error', 'Anda tidak bisa menghapus akun sendiri!');
         }
 
         $user->delete();
-        return redirect()->route('users.index')->with('success', 'User berhasil dihapus!');
+        return redirect()->route('users.index')->with('success', 'User berhasil dihapus.');
     }
 }

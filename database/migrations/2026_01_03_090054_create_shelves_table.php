@@ -11,9 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('categories', function (Blueprint $table) {
+        Schema::create('shelves', function (Blueprint $table) {
             $table->id();
-            $table->string('nama_kategori'); // Contoh: Fiksi, Sains
+            $table->string('nama_rak'); // Misal: Rak A, Rak B
+            $table->string('lokasi')->nullable(); // Misal: Lantai 1, Lantai 2
             $table->timestamps();
         });
     }
@@ -23,6 +24,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('categories');
+        Schema::dropIfExists('shelves');
     }
 };

@@ -3,66 +3,290 @@
 namespace App\Http\Controllers;
 
 use App\Models\Book;
-use App\Models\Shelf;
-use App\Models\Category;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
-
+use Illuminate\Database\Eloquent\SoftDeletes; // <--- 1. Import ini
 class BookController extends Controller
 {
+    use SoftDeletes; // <--- 2. Pasang di sini
     /**
-     * Tampilkan daftar buku (Nanti kita kerjakan di Tahap 5)
+     * Menampilkan daftar semua buku (Gabungan data A, B, Admin)
      */
-    public function index()
+    public function index(Request $request)
     {
-        // Ambil semua data buku, urutkan dari yang terbaru
-        // with('user') artinya sekalian ambil data nama penginputnya
-        $books = Book::with(['user', 'shelf', 'category'])->latest()->get();
+        $search = $request->input('search');
+
+        $books = Book::with(['user', 'category', 'shelf'])
+            ->when($search, function ($query, $search) {
+                return $query->where('judul', 'like', "%{$search}%")
+                    ->orWhere('pengarang', 'like', "%{$search}%")
+                    ->orWhere('no_barcode', 'like', "%{$search}%")
+                    ->orWhere('no_induk_buku', 'like', "%{$search}%");
+            })
+            ->latest()
+            ->paginate(10)
+            ->withQueryString();
+
+        // LOGIKA BARU: Jika request datang dari AJAX (Javascript)
+        if ($request->ajax()) {
+            return view('books.partials.table-rows', compact('books'))->render();
+        }
+
         return view('books.index', compact('books'));
     }
 
     /**
-     * Tampilkan FORMULIR input buku
+     * Menampilkan form input buku
+     */
+    /**
+     * Menampilkan form input buku
      */
     public function create()
     {
-        // Kita butuh data Rak dan Kategori buat isian Dropdown
-        $shelves = Shelf::all();
-        $categories = Category::all();
+        // Ambil data kategori dan rak untuk dropdown
+        $categories = \App\Models\Category::all();
+        $shelves = \App\Models\Shelf::all();
 
-        return view('books.create', compact('shelves', 'categories'));
+        // Buat nomor induk otomatis (opsional, sebagai saran default)
+        // Format: BUKU-TAHUN-RANDOM -> BUKU-2024-001
+        $nextId = \App\Models\Book::max('id') + 1;
+        $suggestedNoInduk = 'IND-' . date('Y') . '-' . str_pad($nextId, 4, '0', STR_PAD_LEFT);
+
+        return view('books.create', compact('categories', 'shelves', 'suggestedNoInduk'));
     }
 
     /**
-     * Proses SIMPAN data ke database
+     * Menyimpan data buku ke database
      */
     public function store(Request $request)
     {
-        // 1. Validasi Input (Cek apakah data sesuai aturan)
+        // 1. Validasi Dasar (Longgarkan unique validation karena kita cek manual nanti)
         $validated = $request->validate([
-            'judul' => 'required|string|max:255',
-            'nomor_induk_buku' => 'required|unique:books,nomor_induk_buku', // Gak boleh kembar
-            'nomor_barcode' => 'required|unique:books,nomor_barcode',       // Gak boleh kembar
-            'pengarang' => 'required|string',
-            'penerbit' => 'required|string',
-            'tahun_terbit' => 'required|digits:4|integer|min:1900|max:' . (date('Y') + 1),
-            'tempat_terbit' => 'required|string',
-            'qty_inventaris' => 'required|integer|min:0',
-            'qty_opac' => 'required|integer|min:0',
-            'qty_rak' => 'required|integer|min:0',
-            'shelf_id' => 'required|exists:shelves,id',      // Wajib pilih rak yang valid
-            'category_id' => 'required|exists:categories,id', // Wajib pilih kategori
-            'keterangan' => 'nullable|string',
+            'judul'         => 'required|string|max:255',
+            'pengarang'     => 'required|string|max:255',
+            'no_induk_buku' => 'required|string', // String panjang berisi koma
+
+            // Stok total nanti dihitung otomatis dari jumlah kode
+            // 'jml_inventaris'=> 'required|integer|min:0', (Hapus/Abaikan input stok manual)
+
+            'penerbit'      => 'nullable|string|max:255',
+            'tahun_terbit'  => 'nullable|integer',
+            'category_id'   => 'nullable|exists:categories,id',
+            'shelf_id'      => 'nullable|exists:shelves,id',
+            'no_barcode'    => 'nullable|string', // String panjang berisi koma
+            'cover'         => 'nullable|image|max:2048',
         ]);
 
-        // 2. Masukkan ID Penginput Otomatis
-        // Kita ambil ID user yang sedang login saat ini
-        $validated['user_id'] = Auth::id();
+        // 2. Upload Cover (Sekali saja untuk semua buku)
+        $coverPath = null;
+        if ($request->hasFile('cover')) {
+            $coverPath = $request->file('cover')->store('covers', 'public');
+        }
 
-        // 3. Simpan ke Database
-        Book::create($validated);
+        // 3. Pecah String jadi Array
+        $induk_list = explode(',', $request->no_induk_buku);
+        $barcode_list = $request->no_barcode ? explode(',', $request->no_barcode) : [];
 
-        // 4. Balik ke halaman daftar dengan pesan sukses
-        return redirect()->route('books.index')->with('success', 'Buku berhasil ditambahkan!');
+        // 4. Looping Simpan
+        foreach ($induk_list as $index => $induk) {
+            Book::create([
+                'judul'         => $request->judul,
+                'pengarang'     => $request->pengarang,
+                'penerbit'      => $request->penerbit,
+                'tahun_terbit'  => $request->tahun_terbit,
+
+                // Data Unik
+                'no_induk_buku' => trim($induk),
+                'no_barcode'    => isset($barcode_list[$index]) ? trim($barcode_list[$index]) : null,
+
+                // Stok selalu 1 per item
+                'jml_inventaris' => 1,
+                'jml_rak'       => 1,
+                'jml_opac'      => 1,
+
+                'category_id'   => $request->category_id,
+                'shelf_id'      => $request->shelf_id,
+                'cover'         => $coverPath, // Pakai gambar yang sama
+                'user_id'       => $request->user()->id,
+            ]);
+        }
+
+        return redirect()->route('books.index')->with('success', count($induk_list) . ' Buku berhasil ditambahkan sekaligus!');
+    }
+    /**
+     * Tampilkan form edit buku
+     */
+    public function edit(Book $book)
+    {
+        // 1. Ambil user yang login pakai helper request() biar editor tidak bingung
+        $user = request()->user();
+
+        // 2. Cek logic Hak Akses
+        // "Jika user kosong, ATAU (Role bukan admin DAN ID user beda dengan pemilik buku)"
+        if (! $user || ($user->role !== 'admin' && $user->id !== $book->user_id)) {
+            abort(403, 'Anda tidak berhak mengedit data ini.');
+        }
+
+        $categories = \App\Models\Category::all();
+        $shelves = \App\Models\Shelf::all();
+
+        return view('books.edit', compact('book', 'categories', 'shelves'));
+    }
+
+    /**
+     * Update data buku ke database
+     */
+    public function update(Request $request, Book $book)
+    {
+        // Cek Hak Akses (Admin atau Pemilik Data)
+        $user = $request->user();
+        if (! $user || ($user->role !== 'admin' && $user->id !== $book->user_id)) {
+            abort(403, 'Anda tidak berhak mengedit data ini.');
+        }
+
+        // 1. Definisikan Aturan Validasi (Perhatikan Unique Rule untuk Update)
+        $rules = [
+            'judul'         => 'required|string|max:255',
+            'pengarang'     => 'required|string|max:255',
+            // Ignore ID buku ini saat cek unique (biar gak error kalau nomor induknya gak diganti)
+            'no_induk_buku' => 'required|unique:books,no_induk_buku,' . $book->id,
+
+            'jml_inventaris' => 'required|integer|min:0',
+            'jml_rak'       => 'required|integer|min:0',
+            'jml_opac'      => 'required|integer|min:0',
+
+            'penerbit'      => 'nullable|string|max:255',
+            'tempat_terbit' => 'nullable|string|max:255',
+            'tahun_terbit'  => 'nullable|integer|min:1901|max:' . (date('Y') + 1),
+            'keterangan'    => 'nullable|string',
+
+            'category_id'   => 'nullable|exists:categories,id',
+            'shelf_id'      => 'nullable|exists:shelves,id',
+            // Ignore ID buku ini juga untuk barcode
+            'no_barcode'    => 'nullable|unique:books,no_barcode,' . $book->id,
+
+            'cover'         => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
+        ];
+
+        // 2. Pesan Error (Sama dengan store)
+        $messages = [
+            'required' => ':attribute wajib diisi.',
+            'unique'   => ':attribute sudah digunakan buku lain.',
+            'integer'  => ':attribute harus berupa angka.',
+            'exists'   => 'Pilihan :attribute tidak valid.',
+            // ... (pesan lain default Laravel sudah cukup jelas, atau copy dari store)
+        ];
+
+        // 3. Eksekusi Validasi
+        $validated = $request->validate($rules, $messages);
+
+        // 4. Handle Upload Gambar Baru (Hapus lama jika ada)
+        if ($request->hasFile('cover')) {
+            // Hapus cover lama dari storage
+            if ($book->cover && \Illuminate\Support\Facades\Storage::disk('public')->exists($book->cover)) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($book->cover);
+            }
+            // Simpan cover baru
+            $validated['cover'] = $request->file('cover')->store('covers', 'public');
+        }
+
+        // 5. Update Data
+        $book->update($validated);
+
+        return redirect()->route('books.index')->with('success', 'Data buku berhasil diperbarui!');
+    }
+
+    /**
+     * Hapus buku
+     */
+    public function destroy(Book $book)
+    {
+        // 1. Ambil user
+        $user = request()->user();
+
+        // 2. Cek Hak Akses
+        if (! $user || ($user->role !== 'admin' && $user->id !== $book->user_id)) {
+            abort(403, 'Dilarang menghapus data orang lain.');
+        }
+
+        $book->delete();
+
+        return redirect()->route('books.index')->with('success', 'Buku berhasil dihapus.');
+    }
+
+    // --- FITUR SAMPAH (TRASH) ---
+
+    /**
+     * Tampilkan halaman tong sampah
+     */
+    public function trash()
+    {
+        // Ambil HANYA data yang sudah dihapus
+        $books = Book::onlyTrashed()->latest()->paginate(10);
+        return view('books.trash', compact('books'));
+    }
+
+    /**
+     * Pulihkan data (Restore)
+     */
+    public function restore($id)
+    {
+        // Cari data di sampah berdasarkan ID
+        $book = Book::onlyTrashed()->findOrFail($id);
+
+        // Pulihkan
+        $book->restore();
+
+        return redirect()->route('books.trash')->with('success', 'Data buku berhasil dipulihkan (Restore).');
+    }
+
+    /**
+     * Hapus Permanen (Force Delete)
+     */
+    public function forceDelete($id)
+    {
+        // Cari data di sampah
+        $book = Book::onlyTrashed()->findOrFail($id);
+
+        // Hapus file cover fisik dari storage jika ada (Biar server gak penuh)
+        if ($book->cover && \Illuminate\Support\Facades\Storage::disk('public')->exists($book->cover)) {
+            \Illuminate\Support\Facades\Storage::disk('public')->delete($book->cover);
+        }
+
+        // Hapus Permanen dari Database
+        $book->forceDelete();
+
+        return redirect()->route('books.trash')->with('success', 'Buku telah dihapus permanen.');
+    }
+
+    // --- FITUR IMPORT EXCEL ---
+
+    /**
+     * Proses Import Excel
+     */
+    public function importExcel(Request $request)
+    {
+        $request->validate([
+            'file' => 'required|mimes:csv,xls,xlsx'
+        ]);
+
+        // HAPUS/KOMENTAR try { ... } catch (...)
+        // Biarkan code ini telanjang agar error aslinya meledak dan terlihat
+
+        \Maatwebsite\Excel\Facades\Excel::import(new \App\Imports\BookImport, $request->file('file'));
+
+        return redirect()->back()->with('success', 'Data buku berhasil diimpor!');
+    }
+
+    /**
+     * Download Template Excel
+     */
+    // Jangan lupa import di paling atas file:
+    // use App\Exports\BookTemplateExport;
+    // use Maatwebsite\Excel\Facades\Excel;
+
+    public function downloadTemplate()
+    {
+        // Menggunakan Class Export terpisah agar lebih rapi & proper
+        return \Maatwebsite\Excel\Facades\Excel::download(new \App\Exports\BookTemplateExport, 'template_buku_rapi.xlsx');
     }
 }

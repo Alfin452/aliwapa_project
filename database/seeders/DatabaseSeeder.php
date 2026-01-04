@@ -15,8 +15,13 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        // Panggil seeder yang baru dibuat
         $this->call([
-            DataAwalSeeder::class,
+            CategorySeeder::class,
+            ShelfSeeder::class,
+            UserSeeder::class,     // <-- User Login (Admin & Karyawan)
         ]);
+
+        // User::factory(10)->create(); // (Bawaan Laravel, bisa di-comment atau pakai)
     }
 }
