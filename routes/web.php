@@ -4,14 +4,16 @@ use App\Http\Controllers\ProfileController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\UserController; // Pastikan buat controller ini nanti
 use App\Http\Controllers\BookController;
+use App\Http\Controllers\DashboardController;
 
 Route::get('/', function () {
     return view('welcome');
 });
 
-Route::get('/dashboard', function () {
-    return view('dashboard');
-})->middleware(['auth', 'verified'])->name('dashboard');
+// Route Dashboard Statistik
+Route::get('/dashboard', [DashboardController::class, 'index'])
+    ->middleware(['auth', 'verified'])
+    ->name('dashboard');
 
 // --- GROUP 1: BISA DIAKSES ADMIN & KARYAWAN ---
 Route::middleware('auth')->group(function () {
@@ -33,6 +35,26 @@ Route::middleware('auth')->group(function () {
     Route::resource('shelves', App\Http\Controllers\ShelfController::class)->except(['create', 'edit', 'show']);
     
     Route::resource('books', BookController::class);
+
+    // --- MENU LAPORAN (REPORT) ---
+    // Semua route di sini akan diawali dengan 'reports.'
+    Route::prefix('reports')->name('reports.')->group(function () {
+
+        // 1. Laporan Buku Induk
+        Route::get('/buku-induk', [App\Http\Controllers\ReportController::class, 'bukuInduk'])->name('buku_induk');
+
+        // 2. Laporan Pengadaan
+        Route::get('/pengadaan', [App\Http\Controllers\ReportController::class, 'pengadaan'])->name('pengadaan');
+
+        // 3. Laporan Klasifikasi
+        Route::get('/klasifikasi', [App\Http\Controllers\ReportController::class, 'klasifikasi'])->name('klasifikasi');
+
+        // 4. Laporan Penghapusan (Sampah)
+        Route::get('/penghapusan', [App\Http\Controllers\ReportController::class, 'penghapusan'])->name('penghapusan');
+
+        // 5. Laporan Stock Opname
+        Route::get('/stock-opname', [App\Http\Controllers\ReportController::class, 'stockOpname'])->name('stock_opname');
+    });
 });
 
 // --- GROUP 2: KHUSUS ADMIN SAJA ---

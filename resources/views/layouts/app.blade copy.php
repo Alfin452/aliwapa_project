@@ -64,63 +64,45 @@
                     Data Buku
                 </a>
 
+                {{-- Menu: Kategori (Sementara link pagar # dulu) --}}
                 <a href="{{ route('categories.index') }}"
-                    class="flex items-center px-4 py-2.5 rounded-lg transition-all group {{ request()->routeIs('categories.*') ? 'bg-blue-50 text-blue-700 shadow-sm' : 'text-gray-700 hover:bg-gray-100 hover:text-blue-600' }}">
-                    <svg class="w-5 h-5 mr-3 {{ request()->routeIs('categories.*') ? 'text-blue-600' : 'text-gray-400 group-hover:text-blue-500' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    class="flex items-center px-4 py-2.5 rounded-lg transition-all group text-gray-700 hover:bg-gray-100 hover:text-blue-600">
+                    <svg class="w-5 h-5 mr-3 text-gray-400 group-hover:text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
                     </svg>
                     Kategori Buku
                 </a>
 
                 <a href="{{ route('shelves.index') }}"
-                    class="flex items-center px-4 py-2.5 rounded-lg transition-all group {{ request()->routeIs('shelves.*') ? 'bg-blue-50 text-blue-700 shadow-sm' : 'text-gray-700 hover:bg-gray-100 hover:text-blue-600' }}">
-                    <svg class="w-5 h-5 mr-3 {{ request()->routeIs('shelves.*') ? 'text-blue-600' : 'text-gray-400 group-hover:text-blue-500' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    class="flex items-center px-4 py-2.5 rounded-lg transition-all group text-gray-700 hover:bg-gray-100 hover:text-blue-600">
+                    <svg class="w-5 h-5 mr-3 text-gray-400 group-hover:text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"></path>
                     </svg>
                     Rak Buku
                 </a>
 
-                {{-- DROPDOWN LAPORAN (Updated Design) --}}
-                <div x-data="{ open: {{ request()->routeIs('reports.*') ? 'true' : 'false' }} }" class="space-y-1">
-                    <button @click="open = !open"
-                        class="flex items-center justify-between w-full px-4 py-2.5 rounded-lg transition-all group text-gray-700 hover:bg-gray-100 hover:text-blue-600 {{ request()->routeIs('reports.*') ? 'bg-gray-50 text-blue-600' : '' }}">
-                        <div class="flex items-center">
-                            <svg class="w-5 h-5 mr-3 {{ request()->routeIs('reports.*') ? 'text-blue-600' : 'text-gray-400 group-hover:text-blue-500' }}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
-                            </svg>
-                            <span>Laporan</span>
-                        </div>
-                        <svg class="w-4 h-4 transition-transform transform text-gray-400" :class="{ 'rotate-180': open }" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
-                        </svg>
-                    </button>
+                {{-- DROPDOWN LAPORAN --}}
+                <div class="hidden sm:flex sm:items-center sm:ml-6 pt-1">
+                    <x-dropdown align="left" width="48">
+                        <x-slot name="trigger">
+                            <button class="inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-medium leading-5 text-gray-500 hover:text-gray-700 hover:border-gray-300 focus:outline-none transition duration-150 ease-in-out {{ request()->routeIs('reports.*') ? 'border-indigo-500 text-gray-900' : '' }}">
+                                <div>Laporan</div>
+                                <div class="ml-1">
+                                    <svg class="fill-current h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20">
+                                        <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                    </svg>
+                                </div>
+                            </button>
+                        </x-slot>
 
-                    {{-- Sub-menu --}}
-                    <div x-show="open"
-                        x-transition:enter="transition ease-out duration-100"
-                        x-transition:enter-start="transform opacity-0 scale-95"
-                        x-transition:enter-end="transform opacity-100 scale-100"
-                        x-transition:leave="transition ease-in duration-75"
-                        x-transition:leave-start="transform opacity-100 scale-100"
-                        x-transition:leave-end="transform opacity-0 scale-95"
-                        class="pl-11 pr-2 space-y-1" style="display: none;">
-
-                        <a href="{{ route('reports.buku_induk') }}" class="block px-3 py-2 rounded-md text-sm transition-colors {{ request()->routeIs('reports.buku_induk') ? 'text-blue-600 bg-blue-50 font-medium' : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50' }}">
-                            1. Buku Induk
-                        </a>
-                        <a href="{{ route('reports.pengadaan') }}" class="block px-3 py-2 rounded-md text-sm transition-colors {{ request()->routeIs('reports.pengadaan') ? 'text-blue-600 bg-blue-50 font-medium' : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50' }}">
-                            2. Pengadaan Baru
-                        </a>
-                        <a href="{{ route('reports.klasifikasi') }}" class="block px-3 py-2 rounded-md text-sm transition-colors {{ request()->routeIs('reports.klasifikasi') ? 'text-blue-600 bg-blue-50 font-medium' : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50' }}">
-                            3. Rekap Klasifikasi
-                        </a>
-                        <a href="{{ route('reports.penghapusan') }}" class="block px-3 py-2 rounded-md text-sm transition-colors {{ request()->routeIs('reports.penghapusan') ? 'text-blue-600 bg-blue-50 font-medium' : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50' }}">
-                            4. Berita Acara Hapus
-                        </a>
-                        <a href="{{ route('reports.stock_opname') }}" class="block px-3 py-2 rounded-md text-sm transition-colors {{ request()->routeIs('reports.stock_opname') ? 'text-blue-600 bg-blue-50 font-medium' : 'text-gray-600 hover:text-blue-600 hover:bg-gray-50' }}">
-                            5. Stock Opname
-                        </a>
-                    </div>
+                        <x-slot name="content">
+                            <x-dropdown-link :href="route('reports.buku_induk')">1. Buku Induk</x-dropdown-link>
+                            <x-dropdown-link :href="route('reports.pengadaan')">2. Pengadaan Baru</x-dropdown-link>
+                            <x-dropdown-link :href="route('reports.klasifikasi')">3. Rekap Klasifikasi</x-dropdown-link>
+                            <x-dropdown-link :href="route('reports.penghapusan')">4. Berita Acara Hapus</x-dropdown-link>
+                            <x-dropdown-link :href="route('reports.stock_opname')">5. Stock Opname Rak</x-dropdown-link>
+                        </x-slot>
+                    </x-dropdown>
                 </div>
 
                 {{-- GROUP: ADMIN AREA (Hanya Muncul Jika Role Admin) --}}
@@ -193,7 +175,6 @@
         </div>
 
     </div>
-
 </body>
 
 </html>

@@ -15,25 +15,21 @@ class BookController extends Controller
     {
         $search = $request->input('search');
 
-        $books = Book::with(['user', 'category', 'shelf'])
+        // Query Standar (Tanpa Grouping)
+        // Menampilkan setiap baris buku secara individu
+        $books = Book::with(['category', 'shelf', 'user'])
             ->when($search, function ($query, $search) {
                 return $query->where('judul', 'like', "%{$search}%")
                     ->orWhere('pengarang', 'like', "%{$search}%")
-                    ->orWhere('no_barcode', 'like', "%{$search}%")
-                    ->orWhere('no_induk_buku', 'like', "%{$search}%");
+                    ->orWhere('no_induk_buku', 'like', "%{$search}%")
+                    ->orWhere('no_barcode', 'like', "%{$search}%");
             })
-            ->latest()
+            ->latest() // Urutkan dari yang paling baru diinput
             ->paginate(10)
             ->withQueryString();
 
-        // LOGIKA BARU: Jika request datang dari AJAX (Javascript)
-        if ($request->ajax()) {
-            return view('books.partials.table-rows', compact('books'))->render();
-        }
-
         return view('books.index', compact('books'));
     }
-
     /**
      * Menampilkan form input buku
      */
