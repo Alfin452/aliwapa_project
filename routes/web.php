@@ -35,6 +35,10 @@ Route::middleware('auth')->group(function () {
     Route::resource('shelves', App\Http\Controllers\ShelfController::class)->except(['create', 'edit', 'show']);
     
     Route::resource('books', BookController::class);
+    //hapus banyak
+    Route::post('/books/bulk-delete', [App\Http\Controllers\BookController::class, 'bulkDelete'])->name('books.bulkDelete');
+    Route::post('/books/bulk-restore', [App\Http\Controllers\BookController::class, 'bulkRestore'])->name('books.bulkRestore');
+    Route::post('/books/bulk-force-delete', [App\Http\Controllers\BookController::class, 'bulkForceDelete'])->name('books.bulkForceDelete');
 
     // --- MENU LAPORAN (REPORT) ---
     // Semua route di sini akan diawali dengan 'reports.'

@@ -254,35 +254,61 @@ class BookController extends Controller
         return redirect()->route('books.trash')->with('success', 'Buku telah dihapus permanen.');
     }
 
-    // --- FITUR IMPORT EXCEL ---
-
-    /**
-     * Proses Import Excel
-     */
     public function importExcel(Request $request)
     {
         $request->validate([
             'file' => 'required|mimes:csv,xls,xlsx'
         ]);
 
-        // HAPUS/KOMENTAR try { ... } catch (...)
-        // Biarkan code ini telanjang agar error aslinya meledak dan terlihat
-
         \Maatwebsite\Excel\Facades\Excel::import(new \App\Imports\BookImport, $request->file('file'));
 
         return redirect()->back()->with('success', 'Data buku berhasil diimpor!');
     }
-
-    /**
-     * Download Template Excel
-     */
-    // Jangan lupa import di paling atas file:
-    // use App\Exports\BookTemplateExport;
-    // use Maatwebsite\Excel\Facades\Excel;
-
     public function downloadTemplate()
     {
         // Menggunakan Class Export terpisah agar lebih rapi & proper
         return \Maatwebsite\Excel\Facades\Excel::download(new \App\Exports\BookTemplateExport, 'template_buku_rapi.xlsx');
+    }
+
+    public function bulkDelete(Request $request)
+    {
+        $request->validate(['ids' => 'required|array']);
+
+        // Hapus data berdasarkan array ID yang dikirim
+        Book::whereIn('id', $request->ids)->delete();
+
+        return redirect()->back()->with('success', count($request->ids) . ' Buku berhasil dipindahkan ke sampah.');
+    }
+
+    /**
+     * Restore Banyak
+     */
+    public function bulkRestore(Request $request)
+    {
+        $request->validate(['ids' => 'required|array']);
+
+        Book::onlyTrashed()->whereIn('id', $request->ids)->restore();
+
+        return redirect()->back()->with('success', count($request->ids) . ' Buku berhasil dipulihkan.');
+    }
+
+    /**
+     * Force Delete Banyak
+     */
+    public function bulkForceDelete(Request $request)
+    {
+        $request->validate(['ids' => 'required|array']);
+
+        // Ambil data dulu untuk menghapus gambar covernya
+        $books = Book::onlyTrashed()->whereIn('id', $request->ids)->get();
+
+        foreach ($books as $book) {
+            if ($book->cover && \Illuminate\Support\Facades\Storage::disk('public')->exists($book->cover)) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($book->cover);
+            }
+            $book->forceDelete();
+        }
+
+        return redirect()->back()->with('success', count($request->ids) . ' Buku telah dihapus permanen.');
     }
 }

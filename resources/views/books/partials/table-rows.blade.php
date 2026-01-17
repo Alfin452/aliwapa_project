@@ -1,6 +1,12 @@
-{{-- STATUS BUKU LOGIC --}}
 @forelse($books as $index => $book)
-<tr class="hover:bg-gray-50/80 transition-colors group border-b border-gray-100 last:border-0">
+<tr @click="selectMode ? (selected.includes('{{ $book->id }}') ? selected = selected.filter(i => i !== '{{ $book->id }}') : selected.push('{{ $book->id }}')) : null"
+    class="hover:bg-gray-50/80 transition-colors group border-b border-gray-100 last:border-0 cursor-pointer">
+
+    {{-- KOLOM CHECKBOX (Hanya tampil di Select Mode) --}}
+    <td x-show="selectMode" class="px-6 py-4 text-center bg-red-50/10">
+        <input type="checkbox" value="{{ $book->id }}" x-model="selected" class="rounded border-gray-300 text-red-600 focus:ring-red-500 w-5 h-5 pointer-events-none">
+    </td>
+
     {{-- Nomor --}}
     <td class="px-6 py-4 text-center text-gray-400 text-sm">
         {{ ($books->currentpage()-1) * $books->perpage() + $index + 1 }}
@@ -34,7 +40,6 @@
                 <span class="bg-gray-100 text-gray-600 px-2 py-0.5 rounded text-[10px] font-mono border border-gray-200" title="Nomor Barcode">
                     {{ $book->no_barcode ?? '-' }}
                 </span>
-                {{-- INFO BARU: Status Ketersediaan --}}
                 @if($book->jml_rak > 0)
                 <span class="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
                     <span class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span> Tersedia
@@ -86,7 +91,6 @@
             <span class="text-[10px] text-gray-500 font-medium truncate w-20">{{ $book->user->name }}</span>
             <span class="text-[9px] text-gray-400">{{ $book->created_at->diffForHumans() }}</span>
 
-            {{-- Tooltip Hover --}}
             <div class="absolute bottom-full mb-2 hidden group-hover/user:block bg-gray-900 text-white text-[10px] p-2 rounded w-max z-20">
                 Diinput: {{ $book->created_at->format('d M Y H:i') }}
             </div>
@@ -95,37 +99,43 @@
 
     {{-- Aksi --}}
     <td class="px-6 py-4 text-right">
-        @if(auth()->user()->role === 'admin' || auth()->id() === $book->user_id)
-        <div class="flex items-center justify-end gap-2">
-            {{-- Edit --}}
-            <a href="{{ route('books.edit', $book->id) }}" class="p-2 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-all border border-transparent hover:border-blue-100" title="Edit Data">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-                </svg>
-            </a>
-            {{-- Hapus --}}
-            <form action="{{ route('books.destroy', $book->id) }}" method="POST" class="inline" onsubmit="return confirm('Hapus buku ini?');">
-                @csrf @method('DELETE')
-                <button type="submit" class="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-all border border-transparent hover:border-red-100" title="Hapus Permanen">
+        {{-- Sembunyikan tombol individu jika mode select aktif --}}
+        <div x-show="!selectMode">
+            @if(auth()->user()->role === 'admin' || auth()->id() === $book->user_id)
+            <div class="flex items-center justify-end gap-2">
+                <a href="{{ route('books.edit', $book->id) }}" class="p-2 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-all border border-transparent hover:border-blue-100" title="Edit Data">
                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
                     </svg>
-                </button>
-            </form>
+                </a>
+                <form action="{{ route('books.destroy', $book->id) }}" method="POST" class="inline" onsubmit="return confirm('Hapus buku ini?');">
+                    @csrf @method('DELETE')
+                    <button type="submit" class="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-all border border-transparent hover:border-red-100" title="Hapus Permanen">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                    </button>
+                </form>
+            </div>
+            @else
+            <span class="inline-flex items-center gap-1 px-2 py-1 rounded border border-gray-200 bg-gray-50 text-gray-400 text-[10px] font-bold uppercase tracking-wider cursor-not-allowed opacity-70">
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                </svg>
+                Locked
+            </span>
+            @endif
         </div>
-        @else
-        <span class="inline-flex items-center gap-1 px-2 py-1 rounded border border-gray-200 bg-gray-50 text-gray-400 text-[10px] font-bold uppercase tracking-wider cursor-not-allowed opacity-70">
-            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
-            </svg>
-            Locked
-        </span>
-        @endif
+
+        {{-- Status Terpilih (Muncul saat selectMode) --}}
+        <div x-show="selectMode" class="text-xs text-gray-400 italic">
+            <span x-text="selected.includes('{{ $book->id }}') ? 'Terpilih' : '-'"></span>
+        </div>
     </td>
 </tr>
 @empty
 <tr>
-    <td colspan="7" class="px-6 py-12 text-center text-gray-500">
+    <td colspan="8" class="px-6 py-12 text-center text-gray-500">
         <div class="flex flex-col items-center justify-center">
             <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mb-4">
                 <svg class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

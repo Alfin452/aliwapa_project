@@ -12,25 +12,44 @@ class DashboardController extends Controller
 {
     public function index()
     {
-        // 1. Ambil Data Statistik (Jumlah Total)
-        $totalBooks = Book::count(); // Total semua buku
+        // 1. KARTU STATISTIK UTAMA
+        $totalTitles = Book::count();
+        $totalCopies = Book::sum('jml_inventaris');
         $totalCategories = Category::count();
-        $totalShelves = Shelf::count();
         $totalUsers = User::count();
 
-        // 2. Ambil 5 Buku Terbaru (Untuk tabel mini)
-        $recentBooks = Book::with(['category', 'shelf', 'user'])
+        // Buku baru bulan ini
+        $newBooksThisMonth = Book::whereMonth('created_at', date('m'))
+            ->whereYear('created_at', date('Y'))
+            ->count();
+
+        // 2. DATA UNTUK GRAFIK (CHART) [DIPERBAIKI]
+        // Hanya ambil kategori yang MEMILIKI buku (jumlah > 0)
+        $chartCategories = Category::withCount('books')
+            ->having('books_count', '>', 0) // <--- PENTING: Filter kategori kosong
+            ->orderByDesc('books_count')
+            ->take(5)
+            ->get();
+
+        // Siapkan array untuk Chart.js
+        $chartLabels = $chartCategories->pluck('nama_kategori');
+        $chartValues = $chartCategories->pluck('books_count');
+
+        // 3. TABEL BUKU TERBARU
+        $recentBooks = Book::with(['category', 'user'])
             ->latest()
             ->take(5)
             ->get();
 
-        // 3. Kirim data ke View
         return view('dashboard', compact(
-            'totalBooks',
+            'totalTitles',
+            'totalCopies',
             'totalCategories',
-            'totalShelves',
             'totalUsers',
-            'recentBooks'
+            'newBooksThisMonth',
+            'recentBooks',
+            'chartLabels',
+            'chartValues'
         ));
     }
 }
