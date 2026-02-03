@@ -15,8 +15,6 @@ class BookController extends Controller
     {
         $search = $request->input('search');
 
-        // Query Standar (Tanpa Grouping)
-        // Menampilkan setiap baris buku secara individu
         $books = Book::with(['category', 'shelf', 'user'])
             ->when($search, function ($query, $search) {
                 return $query->where('judul', 'like', "%{$search}%")
@@ -24,18 +22,18 @@ class BookController extends Controller
                     ->orWhere('no_induk_buku', 'like', "%{$search}%")
                     ->orWhere('no_barcode', 'like', "%{$search}%");
             })
-            ->latest() // Urutkan dari yang paling baru diinput
+            ->latest()
             ->paginate(10)
             ->withQueryString();
 
+        // PERBAIKAN: Jika request dari AJAX, kirim hanya partial view-nya saja
+        if ($request->ajax()) {
+            return view('books.partials.table-rows', compact('books'))->render();
+        }
+
         return view('books.index', compact('books'));
     }
-    /**
-     * Menampilkan form input buku
-     */
-    /**
-     * Menampilkan form input buku
-     */
+
     public function create()
     {
         // Ambil data kategori dan rak untuk dropdown
@@ -55,24 +53,26 @@ class BookController extends Controller
      */
     public function store(Request $request)
     {
-        // 1. Validasi Dasar (Longgarkan unique validation karena kita cek manual nanti)
+        // 1. Validasi Dasar
         $validated = $request->validate([
-            'judul'         => 'required|string|max:255',
-            'pengarang'     => 'required|string|max:255',
-            'no_induk_buku' => 'required|string', // String panjang berisi koma
-
-            // Stok total nanti dihitung otomatis dari jumlah kode
-            // 'jml_inventaris'=> 'required|integer|min:0', (Hapus/Abaikan input stok manual)
-
-            'penerbit'      => 'nullable|string|max:255',
-            'tahun_terbit'  => 'nullable|integer',
-            'category_id'   => 'nullable|exists:categories,id',
-            'shelf_id'      => 'nullable|exists:shelves,id',
-            'no_barcode'    => 'nullable|string', // String panjang berisi koma
-            'cover'         => 'nullable|image|max:2048',
+            'judul'          => 'required|string|max:255',
+            'pengarang'      => 'required|string|max:255',
+            'no_induk_buku'  => 'required|string',
+            'penerbit'       => 'nullable|string|max:255',
+            'tempat_terbit'  => 'nullable|string|max:255', // Tambahkan ini
+            'tahun_terbit'   => 'nullable|integer',
+            'keterangan'     => 'nullable|string',         // Tambahkan ini
+            'category_id'    => 'nullable|exists:categories,id',
+            'shelf_id'       => 'nullable|exists:shelves,id',
+            'no_barcode'     => 'nullable|string',
+            'cover'          => 'nullable|image|max:2048',
+            // Tambahkan validasi stok agar bisa diproses
+            'jml_inventaris' => 'required|integer|min:0',
+            'jml_rak'        => 'required|integer|min:0',
+            'jml_opac'       => 'required|integer|min:0',
         ]);
 
-        // 2. Upload Cover (Sekali saja untuk semua buku)
+        // 2. Upload Cover
         $coverPath = null;
         if ($request->hasFile('cover')) {
             $coverPath = $request->file('cover')->store('covers', 'public');
@@ -85,28 +85,28 @@ class BookController extends Controller
         // 4. Looping Simpan
         foreach ($induk_list as $index => $induk) {
             Book::create([
-                'judul'         => $request->judul,
-                'pengarang'     => $request->pengarang,
-                'penerbit'      => $request->penerbit,
-                'tahun_terbit'  => $request->tahun_terbit,
+                'judul'          => $request->judul,
+                'pengarang'      => $request->pengarang,
+                'penerbit'       => $request->penerbit,
+                'tempat_terbit'  => $request->tempat_terbit, // Simpan Kota
+                'tahun_terbit'   => $request->tahun_terbit,
+                'keterangan'     => $request->keterangan,    // Simpan Keterangan
+                'no_induk_buku'  => trim($induk),
+                'no_barcode'     => isset($barcode_list[$index]) ? trim($barcode_list[$index]) : null,
 
-                // Data Unik
-                'no_induk_buku' => trim($induk),
-                'no_barcode'    => isset($barcode_list[$index]) ? trim($barcode_list[$index]) : null,
+                // PERBAIKAN: Gunakan nilai dari input form, bukan angka 1
+                'jml_inventaris' => $request->jml_inventaris,
+                'jml_rak'        => $request->jml_rak,
+                'jml_opac'       => $request->jml_opac,
 
-                // Stok selalu 1 per item
-                'jml_inventaris' => 1,
-                'jml_rak'       => 1,
-                'jml_opac'      => 1,
-
-                'category_id'   => $request->category_id,
-                'shelf_id'      => $request->shelf_id,
-                'cover'         => $coverPath, // Pakai gambar yang sama
-                'user_id'       => $request->user()->id,
+                'category_id'    => $request->category_id,
+                'shelf_id'       => $request->shelf_id,
+                'cover'          => $coverPath,
+                'user_id'        => $request->user()->id,
             ]);
         }
 
-        return redirect()->route('books.index')->with('success', count($induk_list) . ' Buku berhasil ditambahkan sekaligus!');
+        return redirect()->route('books.index')->with('success', count($induk_list) . ' Buku berhasil ditambahkan!');
     }
     /**
      * Tampilkan form edit buku
